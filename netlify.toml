@@ -1,0 +1,6 @@
+[build]
+  command = "npm install"
+  functions = "netlify/functions"
+
+[[plugins]]
+  package = "@netlify/plugin-functions-install-core"
