@@ -4,8 +4,10 @@
   publish = "."
 
 [functions]
-  timeout = 60  # 60-second timeout
   node_bundler = "esbuild"
+
+  [functions.settings]
+    timeout = 60  # 60-second timeout
 
 [[plugins]]
   package = "@netlify/plugin-functions-install-core"
