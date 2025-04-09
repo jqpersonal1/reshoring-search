@@ -1,0 +1,7 @@
+{
+  "name": "reshoring-search",
+  "version": "1.0.0",
+  "dependencies": {
+    "mongodb": "^4.9.0"
+  }
+}
