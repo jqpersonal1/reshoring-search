@@ -1,9 +1,8 @@
 {
-  "name": "reshoring-search",
+  "name": "supplier-reports",
   "version": "1.0.0",
   "dependencies": {
     "mongodb": "^5.7.0",
-    "pdfkit": "^0.13.0",
-    "@pdf-lib/standard-fonts": "^1.0.0"
+    "pdfkit": "^0.13.0"
   }
 }
