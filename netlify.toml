@@ -4,7 +4,5 @@
 [functions]
   node_bundler = "esbuild"
 
-  # Timeout settings (proper syntax)
   [functions.settings]
-    # No need to specify timeout unless you need >10s
-    # timeout = 10
+    timeout = 60  # 60-second timeout
