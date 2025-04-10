@@ -1,13 +1,8 @@
 [build]
-  command = "npm install"
   functions = "netlify/functions"
-  publish = "."
 
 [functions]
   node_bundler = "esbuild"
+  timeout = 10  # Start with default timeout first
 
-  [functions.settings]
-    timeout = 60  # 60-second timeout
-
-[[plugins]]
-  package = "@netlify/plugin-functions-install-core"
+# Removed plugin - install dependencies via root package.json instead
