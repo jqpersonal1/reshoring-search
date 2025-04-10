@@ -3,6 +3,4 @@
 
 [functions]
   node_bundler = "esbuild"
-  timeout = 10  # Start with default timeout first
-
-# Removed plugin - install dependencies via root package.json instead
+  timeout = 10  # Start with default timeout (10s)
