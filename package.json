@@ -2,7 +2,7 @@
   "name": "reshoring-search",
   "version": "1.0.0",
   "dependencies": {
-    "pdfkit": "^0.13.0"
+    "pdfkit": "^0.13.0",
     "mongodb": "^5.7.0"
   }
 }
