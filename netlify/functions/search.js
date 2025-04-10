@@ -4,21 +4,26 @@ const PDFDocument = require('pdfkit');
 exports.handler = async (event) => {
   const client = new MongoClient(process.env.MONGODB_URI);
   try {
-    // 1. Connect to EXACT database name (productsDB)
+    // Connect to DB
     await client.connect();
-    const db = client.db("productsDB"); // ← Case-sensitive match
+    const db = client.db("productsDB");
     
-    // 2. Query the EXACT collection name (products)
+    // Get products
     const products = await db.collection("products").find().toArray();
-    if (products.length === 0) throw new Error("Collection is empty");
+    if (products.length === 0) throw new Error("No products found");
 
-    // 3. Generate PDF
-    const doc = new PDFDocument();
-    doc.text('Your Products:', { align: 'center' });
+    // Create PDF with built-in font
+    const doc = new PDFDocument({
+      font: 'Courier' // Using built-in font only
+    });
+    
+    // Simple PDF content
+    doc.text('Product Report', { align: 'center' });
     products.forEach(p => {
-      doc.text(`• ${p.name} (${p.country}) - $${p.price}`);
+      doc.text(`${p.name} - ${p.country} - $${p.price}`);
     });
 
+    // Return PDF
     const pdfBuffer = await new Promise(resolve => {
       const chunks = [];
       doc.on('data', chunk => chunks.push(chunk));
@@ -39,9 +44,8 @@ exports.handler = async (event) => {
     return {
       statusCode: 500,
       body: JSON.stringify({
-        error: "PDF failed",
-        details: error.message,
-        debugTip: "Confirmed: Using db='productsDB', collection='products'"
+        error: "PDF generation failed",
+        details: error.message
       })
     };
   } finally {
