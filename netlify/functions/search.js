@@ -10,7 +10,7 @@ exports.handler = async (event) => {
   try {
     // Simple connection test
     await client.connect();
-    const db = client.db("reshoring_db");
+    const db = client.db("productsdb");
     const testDoc = await db.collection("foreign_products").findOne({});
     
     return {
