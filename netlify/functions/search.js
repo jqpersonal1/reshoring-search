@@ -1,95 +1,68 @@
 const { MongoClient } = require('mongodb');
-const PDFDocument = require('pdfkit-browserified');
+const PDFDocument = require('pdfkit');
+const fontkit = require('@pdf-lib/fontkit');
 const { Buffer } = require('buffer');
 
+// Register fontkit for PDFKit
+PDFDocument.registerFont = function(name, src) {
+  this.fontDescriptors[name] = new this.Font(src);
+};
+
 exports.handler = async (event) => {
-  // 1. Set up MongoDB connection
-  const uri = process.env.MONGODB_URI || "mongodb+srv://username:password@cluster.mongodb.net/productsDB?retryWrites=true&w=majority";
-  const client = new MongoClient(uri, {
-    connectTimeoutMS: 10000,
-    serverSelectionTimeoutMS: 10000
-  });
+  const uri = process.env.MONGODB_URI;
+  const client = new MongoClient(uri);
 
   try {
-    // 2. Connect to database
-    console.log("Connecting to MongoDB...");
+    // Connect to MongoDB
     await client.connect();
-    console.log("Connected successfully!");
-    
     const db = client.db("productsDB");
-    const collection = db.collection("suppliers");
+    const suppliers = await db.collection("suppliers").find().limit(50).toArray();
 
-    // 3. Get report parameters from query string
-    const { limit = "20", report_type = "basic" } = event.queryStringParameters || {};
-    
-    // 4. Fetch data
-    const products = await collection.find()
-      .limit(parseInt(limit))
-      .toArray();
-
-    if (products.length === 0) {
-      throw new Error("No products found in the suppliers collection");
-    }
-
-    // 5. Create PDF document
+    // Create PDF document
     const doc = new PDFDocument();
+    
+    // Use built-in Helvetica font
+    doc.font('Helvetica');
     
     // Header
     doc.fontSize(20)
-       .text('Supplier Product Report', { align: 'center', underline: true })
+       .text('Supplier Report', { align: 'center' })
        .moveDown();
 
-    // Table Header
-    doc.fontSize(12)
-       .text('Product Name', 50, doc.y)
-       .text('Country', 250, doc.y)
-       .text('Price', 350, doc.y)
-       .moveDown();
-
-    // Table Rows
-    let yPosition = doc.y;
-    products.forEach((product) => {
-      doc.fontSize(10)
-         .text(product.name || 'N/A', 50, yPosition)
-         .text(product.country || 'N/A', 250, yPosition)
-         .text(`$${product.price?.toFixed(2) || '0.00'}`, 350, yPosition);
-      yPosition += 20;
+    // Content
+    suppliers.forEach(supplier => {
+      doc.fontSize(12)
+         .text(`• ${supplier.name || 'Unnamed Supplier'}`)
+         .text(`  Country: ${supplier.country || 'Unknown'}`, { indent: 20 })
+         .text(`  Category: ${supplier.category || 'N/A'}`, { indent: 20 })
+         .moveDown();
     });
 
-    // Footer
-    doc.moveTo(50, yPosition + 20)
-       .lineTo(550, yPosition + 20)
-       .stroke();
-    doc.fontSize(8)
-       .text(`Report generated on ${new Date().toLocaleDateString()}`, 50, yPosition + 30);
-
-    // 6. Generate PDF buffer
-    const pdfBuffer = await new Promise((resolve) => {
+    // Generate PDF buffer
+    const pdfBuffer = await new Promise(resolve => {
       const buffers = [];
-      doc.on('data', (chunk) => buffers.push(chunk));
+      doc.on('data', chunk => buffers.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(buffers)));
       doc.end();
     });
 
-    // 7. Return response
     return {
       statusCode: 200,
-      headers: {
+      headers: { 
         'Content-Type': 'application/pdf',
-        'Content-Disposition': 'attachment; filename=supplier_report.pdf'
+        'Content-Disposition': 'attachment; filename=suppliers.pdf'
       },
       body: pdfBuffer.toString('base64'),
       isBase64Encoded: true
     };
 
   } catch (error) {
-    console.error("Error generating PDF:", error);
+    console.error('PDF generation error:', error);
     return {
       statusCode: 500,
       body: JSON.stringify({
         error: "Failed to generate report",
-        message: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        message: error.message
       })
     };
   } finally {
