@@ -2,7 +2,7 @@ const { MongoClient } = require('mongodb');
 const PDFDocument = require('pdfkit');
 
 exports.handler = async () => {
-  const uri = "mongodb+srv://jqpersonal1:G2FA0CQ6Q5LLMOqg@product-search-db.ytzngnu.mongodb.net/productsDB?retryWrites=true&w=majority";
+  const uri = "mongodb+srv://jqpersonal1:Tyran0saurus@product-search-db.ytzngnu.mongodb.net/productsDB?retryWrites=true&w=majority";
   const client = new MongoClient(uri);
 
   try {
