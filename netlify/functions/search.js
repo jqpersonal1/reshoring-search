@@ -1,14 +1,9 @@
 const { MongoClient } = require('mongodb');
 const PDFDocument = require('pdfkit');
-const fontkit = require('@pdf-lib/fontkit');
 const { Buffer } = require('buffer');
+const standardFonts = require('@pdf-lib/standard-fonts');
 
-// Register fontkit for PDFKit
-PDFDocument.registerFont = function(name, src) {
-  this.fontDescriptors[name] = new this.Font(src);
-};
-
-exports.handler = async (event) => {
+exports.handler = async () => {
   const uri = process.env.MONGODB_URI;
   const client = new MongoClient(uri);
 
@@ -18,10 +13,10 @@ exports.handler = async (event) => {
     const db = client.db("productsDB");
     const suppliers = await db.collection("suppliers").find().limit(50).toArray();
 
-    // Create PDF document
+    // Create PDF with built-in fonts
     const doc = new PDFDocument();
     
-    // Use built-in Helvetica font
+    // Force use of standard PDF fonts (no external files needed)
     doc.font('Helvetica');
     
     // Header
@@ -32,13 +27,13 @@ exports.handler = async (event) => {
     // Content
     suppliers.forEach(supplier => {
       doc.fontSize(12)
-         .text(`• ${supplier.name || 'Unnamed Supplier'}`)
+         .text(`• ${supplier.name || 'Unnamed'}`)
          .text(`  Country: ${supplier.country || 'Unknown'}`, { indent: 20 })
          .text(`  Category: ${supplier.category || 'N/A'}`, { indent: 20 })
          .moveDown();
     });
 
-    // Generate PDF buffer
+    // Generate PDF
     const pdfBuffer = await new Promise(resolve => {
       const buffers = [];
       doc.on('data', chunk => buffers.push(chunk));
@@ -57,12 +52,11 @@ exports.handler = async (event) => {
     };
 
   } catch (error) {
-    console.error('PDF generation error:', error);
     return {
       statusCode: 500,
       body: JSON.stringify({
-        error: "Failed to generate report",
-        message: error.message
+        error: "PDF generation failed",
+        message: error.message.replace(/mongodb\+srv:\/\/.*@/, 'mongodb+srv://USERNAME:REDACTED@')
       })
     };
   } finally {
