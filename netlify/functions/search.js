@@ -2,7 +2,7 @@ const { MongoClient } = require('mongodb');
 
 exports.handler = async () => {
   // Use environment variable or fallback (for testing)
-  const uri = process.env.MONGODB_URI || "mongodb+srv://jqpersonal1:YOUR_NEW_PASSWORD@product-search-db.ytzngnu.mongodb.net/productsDB?retryWrites=true&w=majority";
+  const uri = process.env.MONGODB_URI || "mongodb+srv://jqpersonal1:Tyran0saurus@product-search-db.ytzngnu.mongodb.net/productsDB?retryWrites=true&w=majority";
   
   const client = new MongoClient(uri, {
     connectTimeoutMS: 5000,
