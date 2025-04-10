@@ -1,8 +1,22 @@
 [build]
-  functions = "netlify/functions"
+  # Base directory for all paths below
+  base = "/"  
+  # Where your functions are located
+  functions = "netlify/functions"  
+  # Default build command (installs dependencies)
+  command = "npm install"  
 
 [functions]
-  node_bundler = "esbuild"
+  # Required bundler for Node.js functions
+  node_bundler = "esbuild"  
 
+  # Timeout and settings
   [functions.settings]
-    timeout = 60  # 60-second timeout
+    # 30-second timeout (adjust if needed)
+    timeout = 30  
+    # Keep functions warm (reduces cold starts)
+    bundled_external = true  
+
+# Required plugin for function dependencies
+[[plugins]]
+  package = "@netlify/plugin-functions-install-core"
