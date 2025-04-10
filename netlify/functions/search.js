@@ -1,41 +1,32 @@
 const { MongoClient } = require('mongodb');
+const PDFDocument = require('pdfkit');
 
 exports.handler = async (event) => {
-  const query = event.queryStringParameters?.q || 'test';
-  const client = new MongoClient(process.env.MONGODB_URI, {
-    connectTimeoutMS: 10000,
-    serverSelectionTimeoutMS: 10000
+  // 1. Connect to MongoDB (your existing code)
+  const client = new MongoClient(process.env.MONGODB_URI);
+  await client.connect();
+  const db = client.db("productsdb");
+
+  // 2. Fetch products (limit 5 for testing)
+  const products = await db.collection("products").find().limit(5).toArray();
+
+  // 3. Create PDF
+  const doc = new PDFDocument();
+  doc.text('Your Product Report', { align: 'center', underline: true });
+  products.forEach((p) => doc.text(`${p.name} - ${p.country}`));
+
+  // 4. Return PDF
+  const pdfBuffer = await new Promise((resolve) => {
+    const buffers = [];
+    doc.on('data', buffers.push.bind(buffers));
+    doc.on('end', () => resolve(Buffer.concat(buffers)));
+    doc.end(); // Finalize PDF
   });
 
-  try {
-    await client.connect();
-    const db = client.db("productsdb");
-    
-    const [products, suppliers] = await Promise.all([
-      db.collection("products")  // ← Updated name
-        .find({ $text: { $search: query } })
-        .limit(5)
-        .toArray(),
-        
-      db.collection("suppliers")  // ← Updated name
-        .find({})
-        .limit(5)
-        .toArray()
-    ]);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ products, suppliers })
-    };
-  } catch (error) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ 
-        error: error.message,
-        note: "Verify 'products' and 'suppliers' collections exist"
-      })
-    };
-  } finally {
-    await client.close();
-  }
+  return {
+    statusCode: 200,
+    headers: { 'Content-Type': 'application/pdf' },
+    body: pdfBuffer.toString('base64'),
+    isBase64Encoded: true,
+  };
 };
