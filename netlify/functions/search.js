@@ -1,36 +1,39 @@
 const { MongoClient } = require('mongodb');
-const PDFDocument = require('pdfkit');
 
 exports.handler = async () => {
-  const uri = "mongodb+srv://jqpersonal1:Tyran0saurus@product-search-db.ytzngnu.mongodb.net/productsDB?retryWrites=true&w=majority";
-  const client = new MongoClient(uri);
+  // Use environment variable or fallback (for testing)
+  const uri = process.env.MONGODB_URI || "mongodb+srv://jqpersonal1:YOUR_NEW_PASSWORD@product-search-db.ytzngnu.mongodb.net/productsDB?retryWrites=true&w=majority";
+  
+  const client = new MongoClient(uri, {
+    connectTimeoutMS: 5000,
+    serverSelectionTimeoutMS: 5000
+  });
 
   try {
+    console.log("Connecting to MongoDB...");
     await client.connect();
+    console.log("Connected successfully!");
+    
     const db = client.db("productsDB");
-    const products = await db.collection("suppliers").find().toArray(); // ← Critical fix
-
-    const doc = new PDFDocument({ font: 'Courier' });
-    doc.text('Supplier Report', { align: 'center' });
-    products.forEach(item => {
-      doc.text(`• ${item.name} (${item.country}) - ${item.category}`);
-    });
-
-    const pdfBuffer = await new Promise(resolve => {
-      const buffers = [];
-      doc.on('data', buffers.push.bind(buffers));
-      doc.on('end', () => resolve(Buffer.concat(buffers)));
-      doc.end();
-    });
-
+    const collection = db.collection("suppliers");
+    const count = await collection.countDocuments();
+    
     return {
       statusCode: 200,
-      headers: { 
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': 'attachment; filename=suppliers.pdf'
-      },
-      body: pdfBuffer.toString('base64'),
-      isBase64Encoded: true
+      body: JSON.stringify({
+        success: true,
+        documentCount: count,
+        debug: "Connection successful"
+      })
+    };
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        error: "Connection failed",
+        details: error.message,
+        uriUsed: uri.replace(/:\/\/.*@/, '://USERNAME:PASSWORD@') // Masks password in logs
+      })
     };
   } finally {
     await client.close();
