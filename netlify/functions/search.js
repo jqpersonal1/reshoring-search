@@ -1,55 +1,52 @@
 const { MongoClient } = require('mongodb');
 const PDFDocument = require('pdfkit');
-const standardFonts = require('@pdf-lib/standard-fonts');
-const { Buffer } = require('buffer');
 
-// Force PDFKit to use built-in fonts
-PDFDocument.prototype.font = function() {
-  return this.font('Helvetica');
-};
-
-exports.handler = async () => {
-  const uri = process.env.MONGODB_URI || "mongodb+srv://USERNAME:PASSWORD@cluster.mongodb.net/productsDB?retryWrites=true&w=majority";
-  const client = new MongoClient(uri);
+exports.handler = async (event, context) => {
+  // 1. Set timeout to 10 seconds (Netlify's max is 30)
+  context.callbackWaitsForEmptyEventLoop = false;
+  
+  const uri = "mongodb+srv://USERNAME:PASSWORD@cluster.mongodb.net/productsDB?retryWrites=true&w=majority";
+  const client = new MongoClient(uri, {
+    connectTimeoutMS: 5000,
+    serverSelectionTimeoutMS: 5000
+  });
 
   try {
+    // 2. Connect with timeout
     await client.connect();
     const db = client.db("productsDB");
-    const suppliers = await db.collection("suppliers").find().limit(10).toArray();
+    const suppliers = await db.collection("suppliers")
+      .find()
+      .limit(5) // Reduced from 10 to 5 items
+      .toArray();
 
+    // 3. Stream PDF (faster than buffers)
     const doc = new PDFDocument();
     doc.font('Helvetica')
-       .fontSize(20)
-       .text('Supplier Report', { align: 'center' });
+       .fontSize(12)
+       .text('Quick Report:\n\n');
+    
+    suppliers.forEach(s => doc.text(`• ${s.name}`));
 
-    suppliers.forEach(item => {
-      doc.fontSize(12)
-         .text(`• ${item.name} - ${item.country}`);
-    });
-
-    const pdfBuffer = await new Promise(resolve => {
-      const buffers = [];
-      doc.on('data', chunk => buffers.push(chunk));
-      doc.on('end', () => resolve(Buffer.concat(buffers)));
+    return new Promise((resolve) => {
+      const chunks = [];
+      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('end', () => resolve({
+        statusCode: 200,
+        headers: { 
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': 'attachment; filename=quick.pdf'
+        },
+        body: Buffer.concat(chunks).toString('base64'),
+        isBase64Encoded: true
+      }));
       doc.end();
     });
 
-    return {
-      statusCode: 200,
-      headers: { 
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': 'attachment; filename=report.pdf'
-      },
-      body: pdfBuffer.toString('base64'),
-      isBase64Encoded: true
-    };
   } catch (error) {
-    return {
+    return { 
       statusCode: 500,
-      body: JSON.stringify({
-        error: "Report failed",
-        message: error.message
-      })
+      body: JSON.stringify({ error: error.message.replace(/mongodb.*@/, 'mongodb://USER:REDACTED@') })
     };
   } finally {
     await client.close();
