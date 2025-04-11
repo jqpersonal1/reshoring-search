@@ -1,39 +1,37 @@
 const { MongoClient } = require('mongodb');
 const PDFDocument = require('pdfkit');
-const { Buffer } = require('buffer');
-const standardFonts = require('@pdf-lib/standard-fonts');
+
+// 1. REPLACE THESE VALUES WITH YOUR ACTUAL CREDENTIALS
+const MONGODB_USERNAME = 'jqpersonal1'; // Your MongoDB username
+const MONGODB_PASSWORD = 'Tyran0saurus'; // Your MongoDB password
+const MONGODB_CLUSTER = 'product-search-db.ytzngnu.mongodb.net'; // From Atlas
+const DB_NAME = 'productsDB'; // Your database name
+const COLLECTION_NAME = 'suppliers'; // Your collection name
+
+// 2. Construct connection string
+const MONGODB_URI = `mongodb+srv://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@${MONGODB_CLUSTER}/${DB_NAME}?retryWrites=true&w=majority`;
 
 exports.handler = async () => {
-  const uri = process.env.MONGODB_URI;
-  const client = new MongoClient(uri);
-
+  const client = new MongoClient(MONGODB_URI);
+  
   try {
-    // Connect to MongoDB
+    // 3. Connect to DB
     await client.connect();
-    const db = client.db("productsDB");
-    const suppliers = await db.collection("suppliers").find().limit(50).toArray();
+    const db = client.db(DB_NAME);
+    const suppliers = await db.collection(COLLECTION_NAME).find().limit(10).toArray();
 
-    // Create PDF with built-in fonts
+    // 4. Generate PDF
     const doc = new PDFDocument();
+    doc.font('Helvetica') // Built-in font
+       .fontSize(20)
+       .text('Supplier Report', { align: 'center' });
     
-    // Force use of standard PDF fonts (no external files needed)
-    doc.font('Helvetica');
-    
-    // Header
-    doc.fontSize(20)
-       .text('Supplier Report', { align: 'center' })
-       .moveDown();
-
-    // Content
     suppliers.forEach(supplier => {
       doc.fontSize(12)
-         .text(`• ${supplier.name || 'Unnamed'}`)
-         .text(`  Country: ${supplier.country || 'Unknown'}`, { indent: 20 })
-         .text(`  Category: ${supplier.category || 'N/A'}`, { indent: 20 })
-         .moveDown();
+         .text(`• ${supplier.name} - ${supplier.country}`);
     });
 
-    // Generate PDF
+    // 5. Return PDF
     const pdfBuffer = await new Promise(resolve => {
       const buffers = [];
       doc.on('data', chunk => buffers.push(chunk));
@@ -45,18 +43,17 @@ exports.handler = async () => {
       statusCode: 200,
       headers: { 
         'Content-Type': 'application/pdf',
-        'Content-Disposition': 'attachment; filename=suppliers.pdf'
+        'Content-Disposition': 'attachment; filename=report.pdf'
       },
       body: pdfBuffer.toString('base64'),
       isBase64Encoded: true
     };
-
   } catch (error) {
     return {
       statusCode: 500,
       body: JSON.stringify({
-        error: "PDF generation failed",
-        message: error.message.replace(/mongodb\+srv:\/\/.*@/, 'mongodb+srv://USERNAME:REDACTED@')
+        error: "Report generation failed",
+        message: error.message
       })
     };
   } finally {
