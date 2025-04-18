@@ -1,52 +1,54 @@
 const { MongoClient } = require('mongodb');
 const PDFDocument = require('pdfkit');
 
-exports.handler = async (event, context) => {
-  // 1. Set timeout to 10 seconds (Netlify's max is 30)
-  context.callbackWaitsForEmptyEventLoop = false;
-  
-  const uri = "mongodb+srv://USERNAME:PASSWORD@cluster.mongodb.net/productsDB?retryWrites=true&w=majority";
-  const client = new MongoClient(uri, {
-    connectTimeoutMS: 5000,
-    serverSelectionTimeoutMS: 5000
+exports.handler = async () => {
+  const client = new MongoClient(process.env.MONGODB_URI, {
+    connectTimeoutMS: 10000,
+    serverSelectionTimeoutMS: 10000,
+    directConnection: true, // Bypasses DNS issues
+    tls: true
   });
 
   try {
-    // 2. Connect with timeout
+    // 1. Connect to DB
     await client.connect();
     const db = client.db("productsDB");
-    const suppliers = await db.collection("suppliers")
-      .find()
-      .limit(5) // Reduced from 10 to 5 items
-      .toArray();
-
-    // 3. Stream PDF (faster than buffers)
-    const doc = new PDFDocument();
-    doc.font('Helvetica')
-       .fontSize(12)
-       .text('Quick Report:\n\n');
     
-    suppliers.forEach(s => doc.text(`• ${s.name}`));
+    // 2. Get products
+    const products = await db.collection("products").find().toArray();
+    if (products.length === 0) throw new Error("No products found");
 
-    return new Promise((resolve) => {
+    // 3. Generate PDF
+    const doc = new PDFDocument({ font: 'Courier' }); // Built-in font only
+    doc.text('Product Report', { align: 'center' });
+    products.forEach(p => {
+      doc.text(`${p.name} - ${p.country} - $${p.price}`);
+    });
+
+    // 4. Return PDF
+    const pdfBuffer = await new Promise(resolve => {
       const chunks = [];
       doc.on('data', chunk => chunks.push(chunk));
-      doc.on('end', () => resolve({
-        statusCode: 200,
-        headers: { 
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': 'attachment; filename=quick.pdf'
-        },
-        body: Buffer.concat(chunks).toString('base64'),
-        isBase64Encoded: true
-      }));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.end();
     });
 
+    return {
+      statusCode: 200,
+      headers: { 
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': 'attachment; filename=products.pdf'
+      },
+      body: pdfBuffer.toString('base64'),
+      isBase64Encoded: true
+    };
   } catch (error) {
-    return { 
+    return {
       statusCode: 500,
-      body: JSON.stringify({ error: error.message.replace(/mongodb.*@/, 'mongodb://USER:REDACTED@') })
+      body: JSON.stringify({
+        error: "PDF generation failed",
+        details: error.message
+      })
     };
   } finally {
     await client.close();
